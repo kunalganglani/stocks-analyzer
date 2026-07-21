@@ -104,7 +104,10 @@ def main(argv=None) -> int:
             if breakpoints:
                 log.info("using on-the-fly RS distribution over %d tickers", len(scores))
 
-        screen_tickers = [t for t in candidates if t in prices]
+        # Screen position tickers too (even off-universe) so the dashboard always
+        # has a fresh close/MA row for every held stock.
+        screen_tickers = [t for t in sorted(set(candidates) | {p["ticker"] for p in positions})
+                          if t in prices]
         rows = [confluence.screen_ticker(t, prices[t], breakpoints) for t in screen_tickers]
 
         quality = set(db.quality_tickers(sb)) if sb and not args.tickers else set(screen_tickers)

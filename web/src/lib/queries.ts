@@ -41,7 +41,13 @@ export type ScreenRow = {
   pct_off_52w_high: number | null;
   setup_status: string | null;
   tt_pass: boolean;
-  vcp: { pivot?: number | null } | null;
+  tt_criteria: Record<string, boolean> | null;
+  vcp: {
+    pivot?: number | null;
+    status?: string;
+    contractions?: { depth: number }[];
+    dryup_ratio?: number | null;
+  } | null;
 };
 
 export async function latestRun() {
@@ -64,7 +70,7 @@ export async function screenRows(date: string): Promise<ScreenRow[]> {
   const sb = supabase();
   const { data } = await sb
     .from("daily_screens")
-    .select("ticker,close,rs_percentile,pct_off_52w_high,setup_status,tt_pass,vcp")
+    .select("ticker,close,rs_percentile,pct_off_52w_high,setup_status,tt_pass,tt_criteria,vcp")
     .eq("screen_date", date).eq("tt_pass", true)
     .order("rs_percentile", { ascending: false });
   return (data as ScreenRow[]) ?? [];

@@ -27,16 +27,19 @@ export default async function LoginPage({
 }) {
   const { err } = await searchParams;
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-950">
-      <form action={login} className="w-80 space-y-4 rounded-xl border border-zinc-800 bg-zinc-900 p-8">
-        <h1 className="text-lg font-semibold text-zinc-100">stocks-analyzer</h1>
-        {err && <p className="text-sm text-red-400">Wrong password.</p>}
+    <main className="flex min-h-[70vh] items-center justify-center">
+      <form
+        action={login}
+        className="w-80 space-y-4 rounded-xl border border-border-ui bg-card p-8"
+      >
+        <h1 className="text-lg font-semibold">stocks-analyzer</h1>
+        {err && <p className="text-sm text-red-600 dark:text-red-400">Wrong password.</p>}
         <input
           type="password"
           name="password"
           placeholder="Password"
           autoFocus
-          className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-zinc-100 outline-none focus:border-zinc-500"
+          className="w-full rounded-md border border-border-ui bg-input-bg px-3 py-2 text-fg outline-none focus:border-faint"
         />
         <button className="w-full rounded-md bg-emerald-600 py-2 font-medium text-white hover:bg-emerald-500">
           Enter

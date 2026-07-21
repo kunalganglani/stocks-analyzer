@@ -1,39 +1,77 @@
-import { recentSignals, safe } from "@/lib/queries";
+import { Badge } from "@/components/badge";
+import { EmptyState } from "@/components/empty-state";
+import { TickerLink } from "@/components/ticker-link";
+import { fmtDate, money } from "@/lib/format";
+import { signalMeta, WATCH_REASON } from "@/lib/labels";
+import { recentSignals, safe, type Signal } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-const badge: Record<string, string> = {
-  BUY: "bg-emerald-900/60 text-emerald-300",
-  WATCH: "bg-amber-900/60 text-amber-300",
-  SELL_STOP: "bg-red-900/60 text-red-300",
-  SELL_STRENGTH: "bg-sky-900/60 text-sky-300",
-  SELL_TRAIL_50D: "bg-red-900/40 text-red-300",
-  SELL_200D: "bg-red-900/60 text-red-300",
-  CLIMAX_WARN: "bg-purple-900/60 text-purple-300",
-};
-
 export default async function SignalsPage() {
   const signals = await safe(() => recentSignals(90), []);
+  const byDate = signals.reduce<Record<string, Signal[]>>((acc, s) => {
+    (acc[s.signal_date] ??= []).push(s);
+    return acc;
+  }, {});
+
   return (
     <main className="py-8">
-      <h1 className="mb-6 text-lg font-semibold">Signal history (90 days)</h1>
-      <div className="space-y-2">
-        {signals.map((s) => (
-          <div
-            key={s.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-900 bg-zinc-900/30 px-4 py-2 text-sm"
-          >
-            <span className="w-24 text-zinc-500">{s.signal_date}</span>
-            <span className="w-14 font-semibold">{s.ticker}</span>
-            <span className={`rounded px-2 py-0.5 text-xs ${badge[s.type] ?? "bg-zinc-800"}`}>
-              {s.type}
-            </span>
-            {s.buy_point != null && <span>buy {`$${Number(s.buy_point).toFixed(2)}`}</span>}
-            {s.stop_price != null && <span>stop {`$${Number(s.stop_price).toFixed(2)}`}</span>}
-            {s.price != null && <span className="text-zinc-400">last {`$${Number(s.price).toFixed(2)}`}</span>}
-          </div>
+      <h1 className="mb-1 text-lg font-semibold">Signal history</h1>
+      <p className="mb-6 text-sm text-muted">
+        Everything the tool has flagged in the last 90 days, newest first.
+      </p>
+      <div className="space-y-6">
+        {Object.entries(byDate).map(([d, rows]) => (
+          <section key={d}>
+            <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-faint">
+              {fmtDate(d)}
+            </h2>
+            <div className="space-y-2">
+              {rows.map((s) => {
+                const m = signalMeta(s.type);
+                const reason = (s.details as { reason?: string } | null)?.reason;
+                const sz = (s.sizing ?? {}) as {
+                  shares?: number;
+                  position_value?: number;
+                  risk_dollars?: number;
+                };
+                return (
+                  <div
+                    key={s.id}
+                    className="rounded-lg border border-border-soft bg-card-soft px-4 py-2.5 text-sm"
+                  >
+                    <div className="flex flex-wrap items-center gap-3">
+                      <TickerLink ticker={s.ticker} className="w-14" />
+                      <Badge tone={m.tone} title={m.explain}>
+                        {m.label}
+                      </Badge>
+                      {s.buy_point != null && <span>buy {money(s.buy_point)}</span>}
+                      {s.stop_price != null && (
+                        <span className="text-muted">stop {money(s.stop_price)}</span>
+                      )}
+                      {s.price != null && <span className="text-faint">last {money(s.price)}</span>}
+                    </div>
+                    {(reason || s.type === "BUY") && (
+                      <p className="mt-1 text-xs text-faint">
+                        {reason
+                          ? WATCH_REASON[reason] ?? reason
+                          : sz.shares != null
+                          ? `Suggested ${sz.shares} shares (≈ ${money(sz.position_value)}), risking ~${money(sz.risk_dollars)}`
+                          : m.explain}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         ))}
-        {signals.length === 0 && <p className="text-sm text-zinc-500">No signals yet.</p>}
+        {signals.length === 0 && (
+          <EmptyState>
+            No signals yet. They appear here after each evening&apos;s screen — buys, warnings,
+            and everything in between.
+          </EmptyState>
+        )}
       </div>
     </main>
   );

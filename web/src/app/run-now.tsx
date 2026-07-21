@@ -16,11 +16,11 @@ export function RunNowButton() {
             setMsg(r.ok ? "Screener started — results in a few minutes." : r.error ?? "Failed");
           })
         }
-        className="rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-700 disabled:opacity-50"
+        className="rounded-md border border-border-ui bg-card px-3 py-1.5 text-sm text-muted hover:text-fg disabled:opacity-50"
       >
         {pending ? "Starting…" : "Run screener now"}
       </button>
-      {msg && <span className="text-xs text-zinc-400">{msg}</span>}
+      {msg && <span className="text-xs text-faint">{msg}</span>}
     </span>
   );
 }

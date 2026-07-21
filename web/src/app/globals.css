@@ -1,8 +1,51 @@
 @import "tailwindcss";
 
-/* Fixed dark theme — plain body rules beat layered utilities, so keep these
-   in sync with the bg-zinc-950/text-zinc-100 classes in layout.tsx. */
+/* Class-driven dark mode (cookie decides the class on <html>) — overrides
+   Tailwind v4's default prefers-color-scheme dark variant. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --bg: #fafafa;
+  --fg: #18181b;
+  --card: #ffffff;
+  --card-soft: #ffffff;
+  --border-ui: #e4e4e7;
+  --border-soft: #ececee;
+  --muted: #52525b;
+  --faint: #71717a;
+  --input-bg: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: #09090b;
+  --fg: #f4f4f5;
+  --card: rgb(24 24 27 / 0.5);
+  --card-soft: rgb(24 24 27 / 0.3);
+  --border-ui: #27272a;
+  --border-soft: #18181b;
+  --muted: #a1a1aa;
+  --faint: #71717a;
+  --input-bg: #27272a;
+}
+
+/* `inline` is required: utilities must emit var(--bg) literally so the .dark
+   variable swap works at runtime (plain @theme bakes values at build time). */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-card: var(--card);
+  --color-card-soft: var(--card-soft);
+  --color-border-ui: var(--border-ui);
+  --color-border-soft: var(--border-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-input-bg: var(--input-bg);
+}
+
+/* Unlayered rule beats layered utilities — kept deliberately as the base coat. */
 body {
-  background: #09090b;
-  color: #f4f4f5;
+  background: var(--bg);
+  color: var(--fg);
 }

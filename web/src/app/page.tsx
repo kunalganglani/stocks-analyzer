@@ -1,3 +1,9 @@
+import { Badge } from "@/components/badge";
+import { EmptyState } from "@/components/empty-state";
+import { Row, Section } from "@/components/section-card";
+import { TickerLink } from "@/components/ticker-link";
+import { fmtDate, isScreenStale, money } from "@/lib/format";
+import { regimeCopy, SETUP_META, signalMeta, WATCH_REASON } from "@/lib/labels";
 import {
   latestRun,
   latestScreenDate,
@@ -10,9 +16,6 @@ import {
 import { RunNowButton } from "./run-now";
 
 export const dynamic = "force-dynamic";
-
-const money = (x: number | null | undefined) =>
-  x == null ? "—" : `$${Number(x).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 export default async function Dashboard() {
   const [run, date, positions, quality] = await Promise.all([
@@ -30,115 +33,145 @@ export default async function Dashboard() {
   );
 
   const regime = run?.regime as { risk_on?: boolean } | null;
-  const riskOn = regime?.risk_on;
+  const reg = regimeCopy(regime?.risk_on);
 
   const buys = signals.filter((s) => s.type === "BUY");
   const sells = signals.filter((s) => s.type.startsWith("SELL") || s.type === "CLIMAX_WARN");
   const watches = signals.filter((s) => s.type === "WATCH");
 
+  const stale = isScreenStale(date) || run?.status === "failed";
+
+  // The 3-second answer: what should I do today?
+  let verdict: { text: string; cls: string };
+  if (sells.length > 0) {
+    verdict = {
+      text: `${sells.length} position${sells.length > 1 ? "s" : ""} need${sells.length > 1 ? "" : "s"} attention`,
+      cls: "text-red-600 dark:text-red-400",
+    };
+  } else if (buys.length > 0) {
+    verdict = {
+      text: `${buys.length} BUY signal${buys.length > 1 ? "s" : ""} today`,
+      cls: "text-emerald-600 dark:text-emerald-400",
+    };
+  } else if (watches.length > 0 || setups.length > 0) {
+    const n = Math.max(watches.length, setups.length);
+    verdict = { text: `Nothing to buy yet — ${n} setup${n > 1 ? "s" : ""} forming`, cls: "" };
+  } else {
+    verdict = { text: "Nothing to do today", cls: "" };
+  }
+
   return (
     <main className="space-y-8 py-8">
-      <section className="flex flex-wrap items-center gap-4">
-        <div
-          className={`rounded-lg px-4 py-3 font-medium ${
-            riskOn == null
-              ? "bg-zinc-800 text-zinc-300"
-              : riskOn
-              ? "bg-emerald-900/60 text-emerald-300"
-              : "bg-red-900/60 text-red-300"
-          }`}
-        >
-          {riskOn == null
-            ? "No run data yet"
-            : riskOn
-            ? "RISK-ON — SPY & QQQ above 200d MA"
-            : "RISK-OFF — buy signals suppressed"}
-        </div>
-        <div className="text-sm text-zinc-400">
-          Last screen: {date ?? "never"} · Quality universe: {quality} stocks ·{" "}
-          {run?.status === "failed" ? (
-            <span className="text-red-400">last run FAILED</span>
+      <section className="space-y-3">
+        <h1 className={`text-3xl font-semibold ${verdict.cls}`}>{verdict.text}</h1>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Badge tone={reg.tone} title={reg.explain}>
+            {reg.label}
+          </Badge>
+          {stale ? (
+            <Badge tone="warn" title="The nightly screen hasn't reported recently — press Run screener now to refresh.">
+              screened {fmtDate(date)} — may be out of date
+            </Badge>
           ) : (
-            `run ${run?.status ?? "n/a"}`
+            <span className="text-faint">screened {fmtDate(date)}</span>
           )}
+          <span className="text-faint">· watching {quality} quality stocks</span>
+          <RunNowButton />
         </div>
-        <RunNowButton />
       </section>
 
       {sells.length > 0 && (
-        <Section title="⚠ Protect positions" tone="red">
-          {sells.map((s) => (
-            <Row key={s.id}>
-              <b>{s.ticker}</b> — {s.type} at {money(s.price)}
-            </Row>
-          ))}
+        <Section title="⚠ Protect your positions" tone="red">
+          {sells.map((s) => {
+            const m = signalMeta(s.type);
+            return (
+              <Row key={s.id}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TickerLink ticker={s.ticker} className="text-fg" />
+                  <Badge tone={m.tone}>{m.label}</Badge>
+                  <span>at {money(s.price)}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-faint">{m.explain}</p>
+              </Row>
+            );
+          })}
         </Section>
       )}
 
       {buys.length > 0 && (
-        <Section title="BUY signals — all gates aligned" tone="green">
-          {buys.map((s) => (
-            <Row key={s.id}>
-              <b>{s.ticker}</b> — buy point {money(s.buy_point)}, stop {money(s.stop_price)}
-              {s.sizing ? ` · ${String((s.sizing as Record<string, unknown>).shares)} shares` : ""}
-            </Row>
-          ))}
+        <Section title="Buy signals — every check aligned" tone="green">
+          {buys.map((s) => {
+            const sz = (s.sizing ?? {}) as { shares?: number; position_value?: number };
+            return (
+              <Row key={s.id}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TickerLink ticker={s.ticker} className="text-fg" />
+                  <span>
+                    buy at {money(s.buy_point)} · exit if it falls to {money(s.stop_price)}
+                  </span>
+                </div>
+                {sz.shares != null && (
+                  <p className="mt-0.5 text-xs text-faint">
+                    Suggested size: {sz.shares} shares (≈ {money(sz.position_value)})
+                  </p>
+                )}
+              </Row>
+            );
+          })}
         </Section>
       )}
 
-      {buys.length === 0 && sells.length === 0 && (
-        <p className="text-zinc-400">
-          No action today.{" "}
-          {watches.length > 0
-            ? `${watches.length} setup(s) forming — see below.`
-            : "The tool is waiting for high-conviction alignment (quality + trend + entry + market)."}
-        </p>
-      )}
-
       <Section title={`Setups forming (${setups.length})`}>
-        {setups.length === 0 && <p className="text-sm text-zinc-500">None near a pivot.</p>}
-        {setups.map((r) => (
-          <Row key={r.ticker}>
-            <b>{r.ticker}</b> — {r.setup_status} · pivot {money(r.vcp?.pivot ?? null)} · RS{" "}
-            {r.rs_percentile ?? "—"}
-          </Row>
-        ))}
+        {setups.length === 0 && (
+          <EmptyState>
+            No stock is near its buy point right now. The screener keeps watching every
+            evening — you&apos;ll get an email the moment one is ready.
+          </EmptyState>
+        )}
+        {setups.map((r) => {
+          const su = SETUP_META[r.setup_status ?? "none"] ?? SETUP_META.none;
+          const watchReason = watches.find((w) => w.ticker === r.ticker)?.details as
+            | { reason?: string }
+            | undefined;
+          return (
+            <Row key={r.ticker}>
+              <div className="flex flex-wrap items-center gap-2">
+                <TickerLink ticker={r.ticker} className="text-fg" />
+                <Badge tone={su.tone} title={su.explain}>
+                  {su.label}
+                </Badge>
+                <span>buy point {money(r.vcp?.pivot ?? null)}</span>
+                <span className="text-faint">· RS {r.rs_percentile ?? "—"}</span>
+              </div>
+              {watchReason?.reason && (
+                <p className="mt-0.5 text-xs text-faint">{WATCH_REASON[watchReason.reason]}</p>
+              )}
+            </Row>
+          );
+        })}
       </Section>
 
-      <Section title={`Open positions (${positions.length})`}>
+      <Section title={`Your positions (${positions.length})`}>
         {positions.length === 0 && (
-          <p className="text-sm text-zinc-500">None — add one when you take a buy signal.</p>
+          <EmptyState>
+            Nothing logged yet. When you take a buy signal, record it on the Positions page —
+            the nightly check will then watch its stop and trend for you.
+          </EmptyState>
         )}
         {positions.map((p) => (
           <Row key={p.id}>
-            <b>{p.ticker}</b> — {p.shares} @ {money(p.entry_price)} · stop{" "}
-            {money(p.stop_price ?? p.entry_price * 0.92)}
+            <div className="flex flex-wrap items-center gap-2">
+              <TickerLink ticker={p.ticker} className="text-fg" />
+              <span>
+                {p.shares} shares @ {money(p.entry_price)}
+              </span>
+              <span className="text-faint">
+                · exit if it falls to {money(p.stop_price ?? p.entry_price * 0.92)}
+              </span>
+            </div>
           </Row>
         ))}
       </Section>
     </main>
   );
-}
-
-function Section({
-  title,
-  tone,
-  children,
-}: {
-  title: string;
-  tone?: "red" | "green";
-  children: React.ReactNode;
-}) {
-  const border =
-    tone === "red" ? "border-red-900" : tone === "green" ? "border-emerald-900" : "border-zinc-800";
-  return (
-    <section className={`rounded-xl border ${border} bg-zinc-900/50 p-5`}>
-      <h2 className="mb-3 font-semibold">{title}</h2>
-      <div className="space-y-2">{children}</div>
-    </section>
-  );
-}
-
-function Row({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm text-zinc-300">{children}</div>;
 }
