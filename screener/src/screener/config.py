@@ -7,7 +7,7 @@ these constants are the single source for anything not worth a DB round-trip.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # --- env ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
