@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Data caches (parquet price cache, downloaded symbol lists)
+screener/.cache/
+screener/tests/fixtures/*.tmp
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+web/.vercel/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
