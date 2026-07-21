@@ -1,0 +1,7 @@
+{
+  "apphosting": {
+    "backendId": "stocks-web",
+    "rootDir": "web",
+    "ignore": ["node_modules", ".git", ".next"]
+  }
+}

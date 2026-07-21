@@ -21,9 +21,12 @@ env:
   - variable: SESSION_SECRET
     secret: session-secret
     availability: [RUNTIME]
-  - variable: GH_PAT
-    secret: gh-pat
-    availability: [RUNTIME]
+  # Run-now button: uncomment once the gh-pat secret exists
+  # (fine-grained PAT, Actions read/write on the repo):
+  #   firebase apphosting:secrets:set gh-pat
+  # - variable: GH_PAT
+  #   secret: gh-pat
+  #   availability: [RUNTIME]
   - variable: GH_REPO
     value: kunalganglani/stocks-analyzer
     availability: [RUNTIME]

@@ -7,11 +7,24 @@ None when unavailable and quality.py decides what missing data means.
 from __future__ import annotations
 
 import logging
+import math
 
 import pandas as pd
 import yfinance as yf
 
 log = logging.getLogger(__name__)
+
+
+def _sanitize(obj):
+    """Recursively replace non-finite floats (inf/nan) with None — they are not
+    JSON-serializable and one bad ticker must not sink a whole upsert batch."""
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return None
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
 
 
 def _row(df: pd.DataFrame | None, *names: str) -> pd.Series | None:
@@ -102,7 +115,7 @@ def extract(ticker: str) -> dict:
             gm_stdev = float(gm.std())
             gm_latest = float(gm.iloc[-1])
 
-    return {
+    return _sanitize({
         "ticker": ticker,
         "name": info.get("shortName"),
         "roe": roe,
@@ -122,4 +135,4 @@ def extract(ticker: str) -> dict:
             "trailing_pe": info.get("trailingPE"),
             "forward_pe": info.get("forwardPE"),
         },
-    }
+    })
