@@ -1,6 +1,6 @@
 import { EmptyState } from "@/components/empty-state";
 import { fmtDate } from "@/lib/format";
-import { latestScreenDate, safe, screenRows } from "@/lib/queries";
+import { latestScreenDate, safe, screenRows, strategyMeta } from "@/lib/queries";
 import { ScreenerTable } from "./screener-table";
 
 export const dynamic = "force-dynamic";
@@ -8,16 +8,18 @@ export const dynamic = "force-dynamic";
 export default async function ScreenerPage() {
   const date = await safe(() => latestScreenDate(), null);
   const rows = date ? await safe(() => screenRows(date), []) : [];
+  const meta = await safe(() => strategyMeta(), []);
   return (
     <main className="py-8">
-      <h1 className="mb-1 text-lg font-semibold">Strong stocks</h1>
+      <h1 className="mb-1 text-lg font-semibold">Screener</h1>
       <p className="mb-6 text-sm text-muted">
-        Every stock here passed all 8 trend checks (Minervini&apos;s Trend Template), ranked by
-        relative strength. Screened {fmtDate(date)}. Tap a row to see why it qualifies.
+        Every analyzed US stock, ranked by relative strength. Screened {fmtDate(date)}. Each
+        strategy chip is a filter — a stock must pass every active strategy to show. Tap a row
+        for the full checklist.
       </p>
 
       {rows.length > 0 ? (
-        <ScreenerTable rows={rows} />
+        <ScreenerTable rows={rows} meta={meta} />
       ) : (
         <EmptyState>
           Nothing passes today. The quality scan runs every Sunday and this list refreshes after

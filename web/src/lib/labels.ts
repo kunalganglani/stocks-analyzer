@@ -69,6 +69,21 @@ export const TT_CRITERIA_LABELS: Record<string, string> = {
   c8_rs_ge_70: "Stronger than 70%+ of all US stocks",
 };
 
+// Human labels for individual strategy checks (buffett/munger keys; minervini
+// uses TT_CRITERIA_LABELS). Unknown keys fall back to prettified key text.
+export const STRATEGY_CHECK_LABELS: Record<string, string> = {
+  returns_on_capital: "Earns 15%+ on shareholders' money (or 12%+ on all capital)",
+  positive_free_cash_flow: "Generates real free cash flow",
+  revenue_growing: "Sales growing over recent years",
+  earnings_growing: "Profits growing over recent years",
+  low_debt: "Debt under 1.5x equity",
+  durable_margins: "Margins stable or expanding (moat holding)",
+};
+
+export function checkLabel(key: string): string {
+  return STRATEGY_CHECK_LABELS[key] ?? TT_CRITERIA_LABELS[key] ?? key.replaceAll("_", " ");
+}
+
 export function regimeCopy(riskOn: boolean | null | undefined): {
   label: string;
   explain: string;

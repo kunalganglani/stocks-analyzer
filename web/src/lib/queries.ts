@@ -34,6 +34,8 @@ export type Position = {
   notes: string | null;
 };
 
+export type StrategyVerdict = { pass: boolean; checks: Record<string, boolean> };
+
 export type ScreenRow = {
   ticker: string;
   close: number | null;
@@ -42,6 +44,7 @@ export type ScreenRow = {
   setup_status: string | null;
   tt_pass: boolean;
   tt_criteria: Record<string, boolean> | null;
+  strategies: Record<string, StrategyVerdict> | null;
   vcp: {
     pivot?: number | null;
     status?: string;
@@ -49,6 +52,14 @@ export type ScreenRow = {
     dryup_ratio?: number | null;
   } | null;
 };
+
+export type StrategyMeta = { key: string; name: string; description: string };
+
+export async function strategyMeta(): Promise<StrategyMeta[]> {
+  const sb = supabase();
+  const { data } = await sb.from("settings").select("value").eq("key", "strategies");
+  return (data?.[0]?.value as StrategyMeta[]) ?? [];
+}
 
 export async function latestRun() {
   const sb = supabase();
@@ -70,9 +81,13 @@ export async function screenRows(date: string): Promise<ScreenRow[]> {
   const sb = supabase();
   const { data } = await sb
     .from("daily_screens")
-    .select("ticker,close,rs_percentile,pct_off_52w_high,setup_status,tt_pass,tt_criteria,vcp")
-    .eq("screen_date", date).eq("tt_pass", true)
-    .order("rs_percentile", { ascending: false });
+    .select(
+      "ticker,close,rs_percentile,pct_off_52w_high,setup_status,tt_pass,tt_criteria,strategies,vcp"
+    )
+    .eq("screen_date", date)
+    .not("ticker", "in", "(SPY,QQQ)")
+    .order("rs_percentile", { ascending: false, nullsFirst: false })
+    .limit(1500);
   return (data as ScreenRow[]) ?? [];
 }
 

@@ -40,6 +40,39 @@ def quality_tickers(sb: Client) -> list[str]:
     return [r["ticker"] for r in rows]
 
 
+def checked_tickers(sb: Client) -> list[str]:
+    """Every ticker with analyzed fundamentals — pass or fail. The daily screen
+    covers all of them so strategy filters on the web have real data."""
+    out: list[str] = []
+    page = 0
+    while True:
+        rows = (sb.table("quality_universe").select("ticker")
+                .order("ticker").range(page * 1000, page * 1000 + 999).execute().data)
+        out.extend(r["ticker"] for r in rows)
+        if len(rows) < 1000:
+            return out
+        page += 1
+
+
+def quality_rows(sb: Client) -> dict[str, dict]:
+    """ticker -> fundamentals row (metrics + raw) for strategy evaluation."""
+    out: dict[str, dict] = {}
+    page = 0
+    while True:
+        rows = (sb.table("quality_universe").select("*")
+                .order("ticker").range(page * 1000, page * 1000 + 999).execute().data)
+        for r in rows:
+            out[r["ticker"]] = r
+        if len(rows) < 1000:
+            return out
+        page += 1
+
+
+def store_strategy_meta(sb: Client, meta: list[dict]) -> None:
+    sb.table("settings").upsert(
+        {"key": "strategies", "value": meta}, on_conflict="key").execute()
+
+
 def latest_rs_breakpoints(sb: Client) -> list[float] | None:
     rows = (sb.table("rs_reference").select("as_of,breakpoints")
             .order("as_of", desc=True).limit(1).execute().data)

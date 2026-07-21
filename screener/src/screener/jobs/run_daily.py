@@ -19,7 +19,7 @@ from datetime import date
 
 import pandas as pd
 
-from .. import confluence, db, regime
+from .. import confluence, db, regime, strategies
 from ..config import T
 from ..fetch import fetch_prices
 from ..indicators import enrich
@@ -69,7 +69,9 @@ def main(argv=None) -> int:
     if args.tickers:
         candidates = [t.strip().upper() for t in args.tickers.split(",") if t.strip()]
     elif sb:
-        candidates = db.quality_tickers(sb)
+        # Screen every analyzed ticker (pass or fail) so web strategy filters
+        # have real data; the BUY gate still requires the full quality pass.
+        candidates = db.checked_tickers(sb)
     else:
         candidates = []
     if not candidates and not positions:
@@ -122,7 +124,14 @@ def main(argv=None) -> int:
                           if t in prices]
         rows = [confluence.screen_ticker(t, prices[t], breakpoints) for t in screen_tickers]
 
-        quality = set(db.quality_tickers(sb)) if sb and not args.tickers else set(screen_tickers)
+        fundamentals_by_ticker = db.quality_rows(sb) if sb else {}
+        for row in rows:
+            row["strategies"] = strategies.evaluate_all(
+                {**row["tt_criteria"], "pass": row["tt_pass"]},
+                fundamentals_by_ticker.get(row["ticker"]))
+
+        quality = (set(db.quality_tickers(sb)) if sb
+                   else set(screen_tickers) if args.tickers else set())
         recent_buys = (db.recent_buy_tickers(sb, as_of, T.buy_cooldown_days)
                        if sb else set())
 
@@ -149,6 +158,7 @@ def main(argv=None) -> int:
             print(f"\n== regime risk_on={reg['risk_on']}  stats={stats}")
             return 0
 
+        db.store_strategy_meta(sb, strategies.META)
         db.upsert_screens(sb, as_of, rows)
         stored = db.upsert_signals(sb, as_of, signals)
         db.finish_run(sb, run_id, "ok", regime=reg, stats=stats)
