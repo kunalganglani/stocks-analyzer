@@ -41,11 +41,16 @@ def parse_args(argv=None):
     return p.parse_args(argv)
 
 
-def is_market_day(spy: pd.DataFrame, as_of: str) -> bool:
-    """Holiday/weekend guard: require a SPY bar within 3 days of as_of and same date
-    for a live run."""
+def effective_screen_date(spy: pd.DataFrame, as_of: str) -> str | None:
+    """If as_of has no market bar yet (evening before close, weekend, holiday),
+    screen as of the latest completed trading day instead. None => data too old,
+    something is wrong upstream."""
     last = spy.index[-1].date().isoformat()
-    return last >= min(as_of, date.today().isoformat())
+    if last >= as_of:
+        return as_of
+    if (date.fromisoformat(as_of) - date.fromisoformat(last)).days > 5:
+        return None
+    return last
 
 
 def main(argv=None) -> int:
@@ -85,9 +90,16 @@ def main(argv=None) -> int:
         return 1
 
     spy = enrich(prices["SPY"])
-    if not is_market_day(prices["SPY"], as_of):
-        log.info("no fresh market bar (weekend/holiday) — exiting cleanly")
-        return 0
+    effective = effective_screen_date(prices["SPY"], as_of)
+    if effective is None:
+        log.error("latest SPY bar is >5 days old — data problem, aborting")
+        if sb:
+            rid = db.start_run(sb, as_of, "daily")
+            db.finish_run(sb, rid, "failed", error="market data too old")
+        return 1
+    if effective != as_of:
+        log.info("no market bar for %s yet — screening as of %s instead", as_of, effective)
+        as_of = effective
 
     run_id = db.start_run(sb, as_of, "daily") if sb else None
     try:
