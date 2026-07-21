@@ -1,0 +1,39 @@
+name: weekly-fundamentals
+
+on:
+  schedule:
+    - cron: "0 8 * * 0" # Sunday 08:00 UTC
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Optional cap on fundamentals checks (testing)"
+        required: false
+
+concurrency:
+  group: screener
+  cancel-in-progress: false
+
+jobs:
+  fundamentals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    defaults:
+      run:
+        working-directory: screener
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --no-dev
+      - name: Run weekly job (universe + RS reference + fundamentals)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_FROM: ${{ vars.ALERT_FROM || 'stocks-analyzer <onboarding@resend.dev>' }}
+          ALERT_TO: ${{ vars.ALERT_TO || 'kunalganglani@gmail.com' }}
+        run: |
+          EXTRA=""
+          if [ -n "${{ inputs.limit }}" ]; then EXTRA="--limit ${{ inputs.limit }}"; fi
+          uv run python -m screener.jobs.run_weekly $EXTRA

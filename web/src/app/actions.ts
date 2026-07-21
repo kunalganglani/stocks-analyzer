@@ -1,36 +1,31 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { GoogleAuth } from "google-auth-library";
 import { supabase } from "@/lib/supabase";
 
-// --- on-demand screener run: fires the Cloud Build trigger used by Cloud Scheduler ---
+// --- on-demand screener run: dispatches the daily GitHub Actions workflow ---
 export async function triggerRun(): Promise<{ ok: boolean; error?: string }> {
-  const saKey = process.env.GCP_SA_KEY;
-  const project = process.env.GCP_PROJECT;
-  const trigger = process.env.CLOUD_BUILD_TRIGGER_ID;
-  if (!saKey || !project || !trigger) {
-    return { ok: false, error: "Run-now not configured (GCP_SA_KEY / GCP_PROJECT / CLOUD_BUILD_TRIGGER_ID)" };
+  const pat = process.env.GH_PAT;
+  const repo = process.env.GH_REPO; // e.g. kunalganglani/stocks-analyzer
+  if (!pat || !repo) {
+    return { ok: false, error: "Run-now not configured (GH_PAT / GH_REPO)" };
   }
   try {
-    const auth = new GoogleAuth({
-      credentials: JSON.parse(saKey),
-      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-    });
-    const token = await (await auth.getClient()).getAccessToken();
-    const region = process.env.CLOUD_BUILD_REGION ?? "us-central1";
     const res = await fetch(
-      `https://cloudbuild.googleapis.com/v1/projects/${project}/locations/${region}/triggers/${trigger}:run`,
+      `https://api.github.com/repos/${repo}/actions/workflows/daily-screen.yml/dispatches`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token.token}`,
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${pat}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
         },
-        body: JSON.stringify({ branchName: "main" }),
+        body: JSON.stringify({ ref: "main" }),
       }
     );
-    if (!res.ok) return { ok: false, error: `Cloud Build ${res.status}: ${(await res.text()).slice(0, 200)}` };
+    if (res.status !== 204) {
+      return { ok: false, error: `GitHub ${res.status}: ${(await res.text()).slice(0, 200)}` };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: String(e).slice(0, 200) };

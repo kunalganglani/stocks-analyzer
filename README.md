@@ -14,10 +14,10 @@ SELL =  per logged position: stop hit · +20% strength · 50d break on volume
 ## Architecture ($0/month)
 
 ```
-Cloud Scheduler ──▶ Cloud Build (python 3.12 + uv)          Vercel (Next.js 16)
-  daily 22:30 UTC     screener/ jobs                          web/ dashboard
-  weekly Sun 08:00      │  yfinance prices+fundamentals         │  4 pages + password
-  + "Run now" button    ▼                                       ▼  proxy auth
+GitHub Actions (public repo = unlimited free minutes)   Firebase App Hosting (Next.js 16)
+  daily-screen  22:30 UTC weekdays                        web/ dashboard
+  weekly-fundamentals  Sun 08:00 UTC                        │  4 pages + password
+  + "Run now" button (workflow_dispatch)                    ▼  proxy auth
                       Supabase Postgres  ◀────────────── server-side service key
                         signals · screens · positions · settings
                       Resend ──▶ email (only when something happened)
@@ -44,18 +44,21 @@ cd web && npm install && npm run dev             # needs .env (see .env.example)
 
 ## Go-live checklist
 
-1. **Supabase**: create free project → SQL editor → run `supabase/migrations/0001_init.sql`
-   → copy URL + service-role key.
-2. **Resend**: create API key (free tier). Default `ALERT_FROM` uses onboarding@resend.dev;
-   verify a domain later for nicer sender.
-3. **GitHub**: push this repo (private is fine — compute runs on GCP).
-4. **GCP**: console → Cloud Build → connect the GitHub repo (2nd-gen connection), then
-   `PROJECT=<id> REPO_OWNER=<you> bash scripts/setup-gcp.sh` (writes secret, 2 triggers,
-   2 scheduler jobs). Test: `gcloud builds triggers run stocks-daily --branch main`.
-5. **Vercel**: import `web/` → set env vars from `web/.env.example`
-   (`CLOUD_BUILD_TRIGGER_ID` = daily trigger id from step 4).
-6. **First data**: run the weekly trigger once (populates quality universe + RS reference),
-   then the daily trigger; check the dashboard and your inbox.
+1. **Supabase** ✅: project created, migration applied via Management API.
+2. **Resend** ✅: key in `.env` (local only, never committed).
+3. **GitHub Actions secrets**: repo → Settings → Secrets and variables → Actions →
+   add `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `RESEND_API_KEY`
+   (optionally vars `ALERT_FROM`, `ALERT_TO`). Public repo = unlimited free minutes.
+4. **Firebase App Hosting**: console → App Hosting → create backend → connect this
+   GitHub repo, root directory `web/`, live branch `main`. Requires the Blaze plan
+   (free quotas cover this app). Then set secrets:
+   `firebase apphosting:secrets:set supabase-service-key / access-password /
+   session-secret / gh-pat` (grant access to the backend when prompted);
+   non-secret env is in `web/apphosting.yaml`.
+5. **Run-now button**: create a fine-grained PAT (repo-scoped, Actions read/write) →
+   `gh-pat` secret above.
+6. **First data**: Actions tab → run `weekly-fundamentals` once (populates quality
+   universe + RS reference, ~1-2h), then `daily-screen`; check dashboard + inbox.
 7. **Verify before trusting money**: add a test position with an entry far above market →
    next daily run must email SELL_STOP; rerun the same day twice → no duplicate email.
 

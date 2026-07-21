@@ -100,6 +100,12 @@ insert into settings (key, value) values
   ('regime_mode',   '"both"'),         -- both | either | spy_only
   ('email_policy',  '"on_change"');
 
+-- Explicit grants: the service key (screener + web server) gets full access.
+-- Needed where default privileges don't cover migration-created tables.
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
 -- Single-user app: RLS on with no policies => anon key sees nothing.
 -- Screener job and the web server both use the service key, which bypasses RLS.
 alter table positions enable row level security;

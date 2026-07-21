@@ -1,0 +1,29 @@
+# Firebase App Hosting config (backend root directory = web/).
+# Secrets live in Cloud Secret Manager; create them with:
+#   firebase apphosting:secrets:set supabase-service-key
+#   firebase apphosting:secrets:set access-password
+#   firebase apphosting:secrets:set session-secret
+#   firebase apphosting:secrets:set gh-pat
+runConfig:
+  maxInstances: 1
+  minInstances: 0
+
+env:
+  - variable: SUPABASE_URL
+    value: https://lekukprtrvqlvxfwahpm.supabase.co
+    availability: [RUNTIME]
+  - variable: SUPABASE_SERVICE_KEY
+    secret: supabase-service-key
+    availability: [RUNTIME]
+  - variable: ACCESS_PASSWORD
+    secret: access-password
+    availability: [RUNTIME]
+  - variable: SESSION_SECRET
+    secret: session-secret
+    availability: [RUNTIME]
+  - variable: GH_PAT
+    secret: gh-pat
+    availability: [RUNTIME]
+  - variable: GH_REPO
+    value: kunalganglani/stocks-analyzer
+    availability: [RUNTIME]
